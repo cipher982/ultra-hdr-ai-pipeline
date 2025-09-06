@@ -1,0 +1,41 @@
+# Virtual environments and caches
+.venv/
+__pycache__/
+.pytest_cache/
+
+# Build artifacts and local bins
+bin/
+build/
+dist/
+*.so
+*.dll
+
+# Generated outputs
+out*/
+outputs*/
+
+# Images and large binaries (keep tiny samples under samples/)
+images/*.heic
+images/*.HEIC
+!images/5D2AF0A6-9912-4CFA-B4EF-1A05489FE557.heic
+images/*_hdr.tiff
+images/*_gainmap.png
+images/*_sdr_preview.jpg
+images/*_gainmap.jpg
+images/*_gainmap.heic
+images/.DS_Store
+.DS_Store
+
+# Weights and checkpoints
+weights/
+*.h5
+!images/01_original_iphone_hdr.jpeg
+!images/02_edited_sdr.jpeg
+*.ckpt
+*.pth
+
+# Lock files (optional)
+# uv.lock
+
+# Embedded git repos (handle separately)
+tools/libultrahdr/

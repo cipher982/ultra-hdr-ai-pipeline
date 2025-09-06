@@ -1,0 +1,46 @@
+[build-system]
+requires = ["hatchling>=1.18"]
+build-backend = "hatchling.build"
+
+[project]
+name = "hdrcnn-tf2"
+version = "0.1.0"
+description = "HDRCNN TF2/Keras modernization with Apple Silicon support"
+readme = "README.md"
+requires-python = ">=3.10,<3.11"
+authors = [{ name = "Modernized by Codex", email = "" }]
+license = { text = "BSD-3-Clause" }
+keywords = ["HDR", "CNN", "TensorFlow", "Keras"]
+
+dependencies = [
+  "numpy>=1.22",
+  "Pillow>=9.0",
+  "imageio>=2.25",
+  "tifffile>=2023.7.10",
+  "streamlit>=1.33",
+  "pytest>=8.2",
+  "playwright>=1.46",
+  "requests>=2.31",
+  # Apple Silicon: install TF for macOS + Metal
+  "tensorflow-macos>=2.13; platform_system == 'Darwin' and platform_machine == 'arm64'",
+  "tensorflow-metal>=1.1; platform_system == 'Darwin' and platform_machine == 'arm64'",
+  # Other platforms: fall back to standard TF
+  "tensorflow>=2.12; platform_system != 'Darwin' or platform_machine != 'arm64'",
+]
+
+[project.optional-dependencies]
+exr = [
+  "OpenEXR>=1.3.9",
+]
+
+[project.scripts]
+hdrcnn-infer = "hdrcnn_tf2:main"
+hdrcnn-convert = "convert_weights:main"
+hdrcnn-review = "review_builder:main"
+review-serve = "review_server:main"
+hdr-process = "hdr.cli:main"
+
+[tool.uv]
+# Use project-local virtualenv and manage Python automatically.
+package = true
+python-preference = "managed"
