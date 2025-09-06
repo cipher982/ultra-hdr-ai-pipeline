@@ -2,7 +2,7 @@ Ultra HDR Gain‑Map Pipeline (MVP)
 =================================
 
 <p align="center">
-  <img src="logo.png" alt="HDR Gain-Map Logo" width="512" height="256">
+  <img src="logo2.png" alt="HDR Gain-Map Logo" width="512" height="256">
 </p>
 
 This repository implements a gain‑map–first pipeline for producing HDR images
