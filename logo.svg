@@ -25,7 +25,7 @@
       <path d="M20 6 V62 M34 6 V62 M48 6 V62"/>
       <path d="M6 20 H62 M6 34 H62 M6 48 H62"/>
     </g>
-    <text x="34" y="88" text-anchor="middle" font-family="system-ui" font-size="12" fill="#334155">gain&nbsp;map</text>
+    <text x="34" y="88" text-anchor="middle" font-family="system-ui" font-size="12" fill="#334155">gain map</text>
   </g>
 
   <!-- Equals -->
