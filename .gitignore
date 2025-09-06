@@ -39,3 +39,7 @@ weights/
 
 # Embedded git repos (handle separately)
 tools/libultrahdr/
+
+archive/
+screenshots/
+_test/
