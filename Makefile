@@ -2,8 +2,8 @@ PY=uv run
 
 # Defaults
 IMG?=./images/02_edited_sdr.jpeg
-OUT?=./images/02_gainmap.jpg
-WEIGHTS?=hdrcnn_tf2.weights.h5
+OUT?=./02_gmnet_result.heic
+MODEL?=gmnet
 
 .PHONY: help setup process test clean build-ultrahdr
 
@@ -19,8 +19,8 @@ setup:
 	uv sync
 
 process:
-	@test -n "$(IMG)" -a -n "$(OUT)" || { echo "Usage: make process IMG=./images/in.jpg OUT=./images/out_gainmap.jpg [REF=opt]"; exit 1; }
-	$(PY) hdr-process --img "$(IMG)" --out "$(OUT)" --weights "$(WEIGHTS)" $(if $(REF),--ref "$(REF)")
+	@test -n "$(IMG)" -a -n "$(OUT)" || { echo "Usage: make process IMG=./images/in.jpg OUT=./out.heic [MODEL=gmnet]"; exit 1; }
+	$(PY) hdr-process --img "$(IMG)" --out "$(OUT)" --model "$(MODEL)" --format heic --verbose
 
 test:
 	$(PY) pytest -q

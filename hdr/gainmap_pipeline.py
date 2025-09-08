@@ -212,7 +212,7 @@ def _export_heic_swift(
             "0.0",  # offset_hdr  
             str(max(0.0, prediction.gain_min_log2)),  # cap_min
             str(prediction.gain_max_log2),  # cap_max
-            ""      # no reference
+            # Note: omit reference path to use generated metadata
         ]
         
         subprocess.run(cmd, check=True, timeout=config.timeout_s, 
@@ -258,7 +258,8 @@ def run_gainmap_pipeline(
     
     # Prepare output paths - use the exact user-specified output path
     base_dir = os.path.dirname(out_path)
-    os.makedirs(base_dir, exist_ok=True)
+    if base_dir:  # Only create directory if there is a directory component
+        os.makedirs(base_dir, exist_ok=True)
     
     # Main output uses exactly what user specified
     main_output_path = out_path
@@ -267,8 +268,9 @@ def run_gainmap_pipeline(
     if config.save_intermediate:
         input_stem = os.path.splitext(os.path.basename(img_path))[0]
         output_stem = os.path.splitext(os.path.basename(out_path))[0]
-        gainmap_png_path = os.path.join(base_dir, f"{input_stem}_gainmap.png")
-        meta_path = os.path.join(base_dir, f"{output_stem}_meta.json")
+        debug_dir = base_dir if base_dir else "."  # Use current dir if no base_dir
+        gainmap_png_path = os.path.join(debug_dir, f"{input_stem}_gainmap.png")
+        meta_path = os.path.join(debug_dir, f"{output_stem}_meta.json")
     else:
         gainmap_png_path = None
         meta_path = None

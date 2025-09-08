@@ -51,7 +51,7 @@ def main():
     # Configure pipeline
     config = GainMapPipelineConfig(
         max_side=args.max_side,
-        model_type='auto' if args.model == 'auto' else 'auto',
+        model_type=args.model if args.model in ['auto', 'synthetic', 'gmnet'] else 'auto',
         model_path=args.model if args.model not in ['auto', 'synthetic', 'gmnet'] else None,
         export_format=args.format,
         export_quality=args.quality,
@@ -60,10 +60,8 @@ def main():
         save_intermediate=args.debug,
     )
     
-    # Handle model type detection
-    if args.model in ['synthetic', 'gmnet']:
-        config.model_type = args.model
-    elif args.model.endswith('.h5'):
+    # Handle legacy model files
+    if args.model.endswith('.h5'):
         config.model_type = 'hdrcnn'  # Legacy compatibility during transition
         config.model_path = args.model
         

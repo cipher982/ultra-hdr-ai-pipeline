@@ -148,14 +148,24 @@ def export_jpegr(
             "-q", str(config.quality),    # Quality
         ]
         
+        # Debug: Print command for troubleshooting
+        print(f"🔍 libultrahdr command: {' '.join(cmd)}")
+        
         # Execute with proper error handling
         result = subprocess.run(
             cmd, 
-            check=True, 
+            check=False,  # Don't auto-raise to capture output
             capture_output=True, 
             text=True,
             timeout=30
         )
+        
+        # Manual error handling with detailed output
+        if result.returncode != 0:
+            print(f"❌ libultrahdr failed (exit code {result.returncode})")
+            print(f"stdout: {result.stdout}")
+            print(f"stderr: {result.stderr}")
+            raise subprocess.CalledProcessError(result.returncode, cmd, result.stdout, result.stderr)
         
         # MANDATORY VALIDATION - fail fast if output is wrong
         if not os.path.exists(out_path):
@@ -222,15 +232,21 @@ def _create_metadata_config(
     
     try:
         with os.fdopen(temp_fd, 'w') as f:
-            # libultrahdr metadata format
-            f.write(f"# libultrahdr gain map metadata\n")
-            f.write(f"min_content_boost={2 ** gain_min_log2:.6f}\n")
-            f.write(f"max_content_boost={2 ** gain_max_log2:.6f}\n") 
-            f.write(f"gamma={gamma:.6f}\n")
-            f.write(f"offset_sdr={offset_sdr:.6f}\n")
-            f.write(f"offset_hdr={offset_hdr:.6f}\n")
-            f.write(f"hdr_capacity_min={2 ** cap_min_log2:.6f}\n")
-            f.write(f"hdr_capacity_max={2 ** cap_max_log2:.6f}\n")
+            # Calculate boost values with minimum threshold
+            min_boost = max(1.0, 2 ** gain_min_log2)  # libultrahdr requires > 1.0
+            max_boost = 2 ** gain_max_log2
+            min_cap = max(1.0, 2 ** cap_min_log2)
+            max_cap = 2 ** cap_max_log2
+            
+            # libultrahdr metadata format (command line arguments style)
+            f.write(f"--maxContentBoost {max_boost:.6f} {max_boost:.6f} {max_boost:.6f}\n")
+            f.write(f"--minContentBoost {min_boost:.6f} {min_boost:.6f} {min_boost:.6f}\n") 
+            f.write(f"--gamma {gamma:.6f} {gamma:.6f} {gamma:.6f}\n")
+            f.write(f"--offsetSdr {offset_sdr:.6f} {offset_sdr:.6f} {offset_sdr:.6f}\n")
+            f.write(f"--offsetHdr {offset_hdr:.6f} {offset_hdr:.6f} {offset_hdr:.6f}\n")
+            f.write(f"--hdrCapacityMin {min_cap:.6f}\n")
+            f.write(f"--hdrCapacityMax {max_cap:.6f}\n")
+            f.write(f"--useBaseColorSpace 1\n")
         
         return config_path
         

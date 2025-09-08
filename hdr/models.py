@@ -327,6 +327,204 @@ class SyntheticGainMapModel(GainMapModel):
         return f"Synthetic(max_boost={self.max_boost_stops}stops)"
 
 
+class GMNetModel(GainMapModel):
+    """
+    GMNet (ICLR 2025) gain map generation model.
+    
+    Implements the state-of-the-art dual-branch architecture for
+    direct SDR→gain map prediction without intermediate HDR generation.
+    """
+    
+    def __init__(self, model_path: Optional[str] = None):
+        self.gmnet_dir = self._find_gmnet_directory()
+        self.model_path = model_path or self._get_default_model_path()
+        self._model = None
+        self._device = None
+        self._setup_gmnet_environment()
+        
+    def _find_gmnet_directory(self) -> str:
+        """Locate GMNet directory relative to this file"""
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        gmnet_path = os.path.join(os.path.dirname(current_dir), "GMNet")
+        
+        if not os.path.exists(gmnet_path):
+            raise ModelError(
+                f"GMNet directory not found at {gmnet_path}. "
+                "Please ensure GMNet is cloned in the project root."
+            )
+        return gmnet_path
+    
+    def _get_default_model_path(self) -> str:
+        """Get path to default pretrained model"""
+        synthetic_model = os.path.join(self.gmnet_dir, "checkpoints", "G_synthetic.pth")
+        realworld_model = os.path.join(self.gmnet_dir, "checkpoints", "G_realworld.pth")
+        
+        # Prefer real-world model if available
+        if os.path.exists(realworld_model):
+            return realworld_model
+        elif os.path.exists(synthetic_model):
+            return synthetic_model
+        else:
+            raise ModelError(
+                f"No GMNet pretrained models found in {self.gmnet_dir}/checkpoints/. "
+                "Please ensure GMNet weights are properly downloaded."
+            )
+    
+    def _setup_gmnet_environment(self):
+        """Setup GMNet imports and environment"""
+        import sys
+        gmnet_codes_path = os.path.join(self.gmnet_dir, "codes")
+        if gmnet_codes_path not in sys.path:
+            sys.path.insert(0, gmnet_codes_path)
+        
+        try:
+            # Import GMNet modules (these will be available after path setup)
+            import torch
+            self._torch = torch
+            self._device = torch.device('cpu')  # Force CPU for compatibility
+            
+        except ImportError as e:
+            raise ModelError(f"GMNet dependencies not available: {e}")
+    
+    def _load_model(self):
+        """Lazy load GMNet model"""
+        if self._model is not None:
+            return
+            
+        try:
+            import options.options as option
+            from models import create_model as gmnet_create_model
+            
+            # Create minimal config for GMNet
+            opt = {
+                'gpu_ids': [],  # Force CPU
+                'is_train': False,
+                'dist': False,  # No distributed training
+                'train': None,  # No training config needed
+                'network_G': {
+                    'which_model_G': 'GMNet',
+                    'in_nc': 3,
+                    'out_nc': 1,
+                    'nf': 64,
+                    'nb': 16,
+                    'act_type': 'relu'
+                },
+                'path': {
+                    'pretrain_model_G': self.model_path,
+                    'strict_load': False
+                },
+                'model': 'base',
+                'scale': 1,
+                'peak': 8.0
+            }
+            
+            # Convert to namespace-like object (GMNet expects this format)
+            class OptDict:
+                def __init__(self, d):
+                    self.__dict__.update(d)
+                def __getitem__(self, key):
+                    return self.__dict__[key]
+                def __contains__(self, key):
+                    return key in self.__dict__
+            
+            def dict_to_nonedict(opt):
+                if isinstance(opt, dict):
+                    new_opt = OptDict({})
+                    for key, sub_opt in opt.items():
+                        new_opt.__dict__[key] = dict_to_nonedict(sub_opt)
+                    return new_opt
+                else:
+                    return opt
+                    
+            opt_obj = dict_to_nonedict(opt)
+            
+            # Create GMNet model
+            gmnet_model = gmnet_create_model(opt_obj)
+            self._model = gmnet_model.netG
+            self._model.eval()
+            
+            print(f"✓ GMNet loaded: {os.path.basename(self.model_path)}")
+            
+        except Exception as e:
+            raise ModelError(f"Failed to load GMNet model: {e}")
+    
+    def predict(self, sdr_rgb: np.ndarray) -> GainMapPrediction:
+        """Generate gain map using GMNet"""
+        self._load_model()  # Lazy loading
+        
+        try:
+            import cv2
+            
+            # Prepare inputs - GMNet needs [full_image, thumbnail]
+            h, w = sdr_rgb.shape[:2]
+            
+            # Resize if too large (GMNet handles various sizes but be reasonable)
+            max_size = 1024
+            if max(h, w) > max_size:
+                scale = max_size / max(h, w)
+                new_h, new_w = int(h * scale), int(w * scale)
+                sdr_rgb = cv2.resize(sdr_rgb, (new_w, new_h))
+            
+            # Create thumbnail (256x256 as per GMNet dataset format)
+            thumbnail = cv2.resize(sdr_rgb, (256, 256))
+            
+            # Convert to tensors (C, H, W format)
+            img_full = self._torch.from_numpy(sdr_rgb.transpose(2, 0, 1)).unsqueeze(0).float()
+            img_thumb = self._torch.from_numpy(thumbnail.transpose(2, 0, 1)).unsqueeze(0).float()
+            
+            # Run inference
+            with self._torch.no_grad():
+                outputs = self._model([img_full, img_thumb])
+                gain_map_tensor = outputs[0]  # First output is main gain map
+            
+            # Convert to numpy
+            gain_map = gain_map_tensor.squeeze().cpu().numpy()
+            
+            # GMNet outputs normalized gain maps in [0,1] range
+            # Clamp and convert to uint8
+            gain_map_clamped = np.clip(gain_map, 0, 1)
+            gain_map_uint8 = (gain_map_clamped * 255).astype(np.uint8)
+            
+            # Compute metadata - GMNet outputs represent log2 gain values
+            # Based on training, typical range is [0, log2(peak)] where peak=8
+            gain_min_log2 = 0.0
+            gain_max_log2 = 3.0  # log2(8) - matches GMNet training
+            
+            # For more accurate metadata, compute from actual values
+            gain_values = gain_map_clamped[gain_map_clamped > 0.01]  # Non-zero values
+            if len(gain_values) > 0:
+                # Map [0,1] output to actual log2 gain range
+                actual_min = float(gain_values.min() * gain_max_log2)
+                actual_max = float(gain_values.max() * gain_max_log2)
+                gain_min_log2 = max(0.0, actual_min)
+                gain_max_log2 = actual_max
+            
+            return GainMapPrediction(
+                gain_map=gain_map_uint8,
+                gain_min_log2=gain_min_log2,
+                gain_max_log2=gain_max_log2,
+                confidence=0.95  # GMNet is a trained model
+            )
+            
+        except Exception as e:
+            raise ModelError(f"GMNet inference failed: {e}")
+    
+    def is_available(self) -> bool:
+        """Check if GMNet is available"""
+        try:
+            return (
+                os.path.exists(self.gmnet_dir) and 
+                os.path.exists(self.model_path)
+            )
+        except:
+            return False
+    
+    @property
+    def name(self) -> str:
+        model_name = os.path.basename(self.model_path).replace('.pth', '')
+        return f"GMNet-{model_name}"
+
+
 def create_model(model_type: str = "auto", **kwargs) -> GainMapModel:
     """
     Factory function for creating gain map models.
@@ -352,8 +550,12 @@ def create_model(model_type: str = "auto", **kwargs) -> GainMapModel:
             
     elif model_type == "synthetic":
         return SyntheticGainMapModel(kwargs.get('max_boost_stops', 3.0))
-    elif model_type in ["gmnet", "onnx", "pytorch", "tensorflow", "tflite"]:
-        # Use generic plugin for any AI model
+    elif model_type == "gmnet":
+        # Use dedicated GMNet implementation
+        model_path = kwargs.get('model_path')  # Optional - will use default if not provided
+        return GMNetModel(model_path)
+    elif model_type in ["onnx", "pytorch", "tensorflow", "tflite"]:
+        # Use generic plugin for other AI models
         model_path = kwargs.get('model_path')
         if not model_path:
             raise ValueError(f"{model_type} requires model_path")
