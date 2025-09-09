@@ -16,7 +16,6 @@ from .gainmap_pipeline import (
     GainMapPipelineError
 )
 from .models import ModelError
-from .exporters.libultrahdr_wrapper import is_available as libultrahdr_available
 
 
 def main():
@@ -110,10 +109,7 @@ def _check_dependencies() -> bool:
         all_good = False
         
     # Export capabilities
-    if libultrahdr_available():
-        print("✅ libultrahdr (JPEG_R export)")
-    else:
-        print("⚠️  libultrahdr unavailable (JPEG_R disabled)")
+    print("✅ Direct Ultra HDR JPEG export")
         
     if platform.system() == "Darwin":
         print("✅ macOS (HEIC export available)")

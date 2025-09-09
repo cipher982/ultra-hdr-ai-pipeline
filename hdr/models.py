@@ -284,10 +284,9 @@ class SyntheticGainMapModel(GainMapModel):
         
     def predict(self, sdr_rgb: np.ndarray) -> GainMapPrediction:
         """Generate synthetic gain map based on luminance"""
-        import tone
         
-        # Compute luminance
-        L = tone.luminance(sdr_rgb)
+        # Compute luminance (Rec. 709 weights)
+        L = 0.2126 * sdr_rgb[..., 0] + 0.7152 * sdr_rgb[..., 1] + 0.0722 * sdr_rgb[..., 2]
         
         # Progressive boost: brighter areas get more enhancement
         # This creates a more realistic gain map than uniform boost
