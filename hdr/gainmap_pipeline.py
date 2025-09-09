@@ -32,11 +32,9 @@ class GainMapPipelineConfig:
     model_type: str = "auto"  # "gmnet", "hdrcnn", "synthetic", "auto"
     model_path: Optional[str] = None
     
-    # Export settings
-    export_format: str = "auto"  # "jpeg_r", "heic", "both", "auto" 
+    # Export settings - only Ultra HDR JPEG supported
     export_quality: int = 95
     gain_map_quality: int = 85
-    encoder: str = "auto"  # "auto", "swift", "direct"
     
     # Output control  
     save_intermediate: bool = False  # Save gain map PNG, metadata JSON (debug only)
@@ -51,8 +49,7 @@ class GainMapPipelineConfig:
 @dataclass 
 class GainMapPipelineOutputs:
     """Results from gain-map pipeline execution"""
-    ultrahdr_jpeg_path: Optional[str]  # Ultra HDR JPEG_R (primary output)
-    heic_path: Optional[str]       # HEIC with gain map (Apple platforms)
+    ultrahdr_jpeg_path: str  # Ultra HDR JPEG (primary and only output)
     
     # Debug outputs (optional)
     gainmap_png_path: Optional[str]  # Raw gain map (debug only)
@@ -203,55 +200,6 @@ def _validate_gain_map_output(prediction: GainMapPrediction) -> None:
 
 
 
-def _export_swift(
-    sdr_path: str,
-    gainmap_png_path: str, 
-    prediction: GainMapPrediction,
-    out_path: str,
-    config: GainMapPipelineConfig
-) -> bool:
-    """Export JPEG or HEIC using Swift exporter (ImageIO gain-map)."""
-    try:
-        # Use existing Swift binary
-        bin_dir = os.path.join(os.path.dirname(__file__), '..', 'bin')
-        swift_bin = os.path.join(bin_dir, 'gainmap_exporter')
-        
-        if not os.path.exists(swift_bin):
-            # Build it
-            src = os.path.join(os.path.dirname(__file__), 'swift', 'GainMapExporter.swift')
-            os.makedirs(bin_dir, exist_ok=True)
-            subprocess.run(['swiftc', '-O', src, '-o', swift_bin], check=True, timeout=30)
-        
-        # Run Swift exporter for JPEG/HEIC (dest inferred from extension)
-        cmd = [
-            swift_bin, 
-            sdr_path, 
-            gainmap_png_path, 
-            out_path,
-            str(prediction.gain_min_log2),
-            str(prediction.gain_max_log2), 
-            "1.0",  # gamma
-            "0.0",  # offset_sdr
-            "0.0",  # offset_hdr  
-            str(max(0.0, prediction.gain_min_log2)),  # cap_min
-            str(prediction.gain_max_log2),  # cap_max
-            # Note: omit reference path to use generated metadata
-        ]
-        
-        subprocess.run(cmd, check=True, timeout=config.timeout_s, 
-                      capture_output=True, text=True)
-        return True
-        
-    except subprocess.CalledProcessError as e:
-        if config.strict_mode:
-            raise GainMapPipelineError(f"Swift export failed: {e}")
-        print(f"⚠️  Swift export failed: {e}")
-        return False
-    except Exception as e:
-        if config.strict_mode:
-            raise GainMapPipelineError(f"Swift export error: {e}")
-        print(f"⚠️  Swift export error: {e}")
-        return False
 
 
 def run_gainmap_pipeline(
@@ -371,69 +319,25 @@ def run_gainmap_pipeline(
             with open(meta_path, 'w') as f:
                 json.dump(metadata, f, indent=2)
             
-        # Step 5: Export Ultra HDR containers
-        print("[4/4] Exporting Ultra HDR containers...")
+        # Step 5: Export Ultra HDR JPEG (only working format)
+        print("[4/4] Exporting Ultra HDR JPEG...")
         
-        ultrahdr_jpeg_path = None
-        heic_output_path = None
-        
-        # Export Ultra HDR containers using temp files
         try:
-            # On macOS, prefer Swift/ImageIO path first for JPEG or HEIC (unless encoder forces direct)
-            if platform.system() == "Darwin" and config.export_format in ["auto", "jpeg_r", "heic"] and config.encoder in ["auto", "swift"]:
-                try:
-                    success = _export_swift(temp_sdr_path, temp_gm_path, prediction, main_output_path, config)
-                    if success:
-                        if main_output_path.lower().endswith(('.jpg', '.jpeg')):
-                            ultrahdr_jpeg_path = main_output_path
-                            print(f"✅ Ultra HDR JPEG (Swift): {main_output_path}")
-                        elif main_output_path.lower().endswith('.heic'):
-                            heic_output_path = main_output_path
-                            print(f"✅ HEIC (Swift): {main_output_path}")
-                except Exception as e:
-                    if config.strict_mode:
-                        raise
-                    print(f"⚠️  Swift export error: {e}")
-
-            # Try direct Ultra HDR creation
-            if not ultrahdr_jpeg_path and config.export_format in ["auto", "jpeg_r", "both"] and config.encoder in ["auto", "direct"]:
-                try:
-                    create_ultra_hdr_jpeg(
-                        sdr_image_path=temp_sdr_path,
-                        gainmap_image_path=temp_gm_path,
-                        output_path=main_output_path,
-                        metadata=UltraHDRMetadata(
-                            gain_min_log2=prediction.gain_min_log2,
-                            gain_max_log2=prediction.gain_max_log2,
-                            # ISO hdrgm expects log2 stops for HDRCapacity*, not linear ratio
-                            hdr_capacity_min=max(0.0, prediction.gain_min_log2),
-                            hdr_capacity_max=prediction.gain_max_log2
-                        )
-                    )
-                    ultrahdr_jpeg_path = main_output_path
-                    print(f"✅ Ultra HDR JPEG (direct): {main_output_path}")
-                except UltraHDRDirectError as e:
-                    if config.strict_mode:
-                        raise GainMapPipelineError(f"Ultra HDR export failed: {e}")
-                    print(f"⚠️  Direct Ultra HDR export failed: {e}")
-                except Exception as e:
-                    if config.strict_mode:
-                        raise
-                    print(f"⚠️  Ultra HDR export error: {e}")
-                    
-            # Try HEIC export via Swift if requested and not produced yet
-            if not heic_output_path and config.export_format in ["heic", "both"] and platform.system() == "Darwin":
-                try:
-                    success = _export_swift(temp_sdr_path, temp_gm_path, prediction, main_output_path, config)
-                    if success:
-                        heic_output_path = main_output_path
-                        print(f"✅ HEIC (Swift): {main_output_path}")
-                    else:
-                        print("⚠️  HEIC export failed")
-                except Exception as e:
-                    if config.strict_mode:
-                        raise
-                    print(f"⚠️  HEIC export error: {e}")
+            create_ultra_hdr_jpeg(
+                sdr_image_path=temp_sdr_path,
+                gainmap_image_path=temp_gm_path,
+                output_path=main_output_path,
+                metadata=UltraHDRMetadata(
+                    gain_min_log2=prediction.gain_min_log2,
+                    gain_max_log2=prediction.gain_max_log2,
+                    # ISO hdrgm expects log2 stops for HDRCapacity*, not linear ratio
+                    hdr_capacity_min=max(0.0, prediction.gain_min_log2),
+                    hdr_capacity_max=prediction.gain_max_log2
+                )
+            )
+            print(f"✅ Ultra HDR JPEG created: {main_output_path}")
+        except UltraHDRDirectError as e:
+            raise GainMapPipelineError(f"Ultra HDR export failed: {e}")
         
         finally:
             # Always cleanup temp files
@@ -444,16 +348,12 @@ def run_gainmap_pipeline(
                 except:
                     pass
             
-        # Validation: At least one export should succeed
-        if config.require_export_success and not ultrahdr_jpeg_path and not heic_output_path:
-            raise GainMapPipelineError(
-                "No Ultra HDR containers were successfully created. "
-                f"Platform: {platform.system()}"
-            )
+        # Validate the created Ultra HDR JPEG
+        if not os.path.exists(main_output_path):
+            raise GainMapPipelineError(f"Ultra HDR JPEG was not created: {main_output_path}")
             
         return GainMapPipelineOutputs(
-            ultrahdr_jpeg_path=ultrahdr_jpeg_path,
-            heic_path=heic_output_path,
+            ultrahdr_jpeg_path=main_output_path,
             gainmap_png_path=gainmap_png_path if config.save_intermediate else None,
             meta_path=meta_path if config.save_intermediate else None,
             model_name=model.name,
@@ -468,26 +368,82 @@ def run_gainmap_pipeline(
         raise
 
 
+def validate_ultrahdr_structure(path: str) -> dict:
+    """
+    Validate Ultra HDR JPEG structure and return metadata.
+    
+    Returns:
+        dict: Validation results with 'valid', 'errors', 'metadata' keys
+    """
+    result = {'valid': False, 'errors': [], 'metadata': {}}
+    
+    try:
+        if not os.path.exists(path):
+            result['errors'].append("File does not exist")
+            return result
+            
+        file_size = os.path.getsize(path)
+        result['metadata']['file_size'] = file_size
+        
+        if file_size < 10000:  # Ultra HDR should be substantial
+            result['errors'].append(f"File too small: {file_size} bytes")
+            
+        # Check JPEG structure
+        with open(path, 'rb') as f:
+            header = f.read(20)
+            if not header.startswith(b'\xff\xd8'):
+                result['errors'].append("Invalid JPEG header")
+                return result
+                
+            # Look for MPF marker (Multi-Picture Format)
+            f.seek(0)
+            data = f.read(min(file_size, 100000))  # Check first 100KB
+            if b'MPF\x00' not in data:
+                result['errors'].append("Missing MPF metadata (not Ultra HDR)")
+            else:
+                result['metadata']['has_mpf'] = True
+                
+            # Look for gain map metadata (hdrgm namespace or XMP)
+            has_metadata = (b'hdrgm' in data or 
+                          b'HDRGainMap' in data or 
+                          b'GainMap' in data or
+                          b'ns.adobe.com/hdr-gain-map' in data)
+            if has_metadata:
+                result['metadata']['has_hdrgm'] = True
+            # Note: Not all Ultra HDR files have visible hdrgm metadata, so don't error
+                
+        # Check for multiple JPEG streams (SDR + gain map)
+        with open(path, 'rb') as f:
+            content = f.read()
+            jpeg_starts = [i for i in range(len(content)-1) if content[i:i+2] == b'\xff\xd8']
+            result['metadata']['jpeg_count'] = len(jpeg_starts)
+            
+            if len(jpeg_starts) < 2:
+                result['errors'].append("Ultra HDR requires 2 JPEG streams (SDR + gain map)")
+                
+        result['valid'] = len(result['errors']) == 0
+        return result
+        
+    except Exception as e:
+        result['errors'].append(f"Validation error: {e}")
+        return result
+
+
 def _validate_ultrahdr_output(path: str, expected_min_size: int) -> None:
     """Validate Ultra HDR output - FAIL FAST on silent failures"""
-    if not os.path.exists(path):
-        raise GainMapPipelineError(f"Ultra HDR output not created: {path}")
+    validation = validate_ultrahdr_structure(path)
+    
+    if not validation['valid']:
+        errors = '; '.join(validation['errors'])
+        raise GainMapPipelineError(f"Ultra HDR validation failed: {errors}")
         
-    file_size = os.path.getsize(path)
+    file_size = validation['metadata']['file_size']
     if file_size < expected_min_size:
         raise GainMapPipelineError(
-            f"Ultra HDR output suspiciously small: {file_size} bytes "
-            f"(expected >{expected_min_size}). May be regular JPEG."
+            f"Ultra HDR output too small: {file_size} bytes (expected >{expected_min_size})"
         )
-        
-    # Check JPEG header
-    with open(path, 'rb') as f:
-        header = f.read(20)
-        if not header.startswith(b'\xff\xd8'):
-            raise GainMapPipelineError(f"Invalid JPEG header in {path}")
             
-    # TODO: Add metadata validation with exiftool
-    print(f"✅ Ultra HDR validation passed: {file_size} bytes")
+    print(f"✅ Ultra HDR validation passed: {file_size} bytes, MPF: {validation['metadata'].get('has_mpf', False)}")
 
 
 # CLI integration

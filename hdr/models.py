@@ -545,7 +545,8 @@ def create_model(model_type: str = "auto", **kwargs) -> GainMapModel:
         if model_path and os.path.exists(model_path):
             return ModelPlugin(model_path)
         else:
-            return SyntheticGainMapModel(kwargs.get('max_boost_stops', 3.0))
+            # Default to GMNet for auto mode
+            return GMNetModel()
             
     elif model_type == "synthetic":
         return SyntheticGainMapModel(kwargs.get('max_boost_stops', 3.0))

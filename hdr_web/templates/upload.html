@@ -1,0 +1,230 @@
+{% extends "base.html" %}
+
+{% block content %}
+<form id="upload-form" method="post" action="/process" enctype="multipart/form-data">
+    <!-- Upload Zone -->
+    <div class="upload-zone" id="upload-zone">
+        <input type="file" id="file-input" name="file" accept="image/*" style="display: none;">
+        <div class="upload-content">
+            <div class="upload-icon">📸</div>
+            <div class="upload-text">
+                <h3>Drop your photo here or click to browse</h3>
+                <p>Support for JPEG and PNG • Max 10MB</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Preview Section (hidden initially) -->
+    <div id="preview-section" class="hidden">
+        <div class="image-comparison">
+            <div class="image-side">
+                <h3>Original Image</h3>
+                <img id="original-preview" class="image-preview" alt="Original">
+                <div style="margin-top: 10px;">
+                    <span id="filename"></span>
+                </div>
+            </div>
+            
+            <div class="arrow">→</div>
+            
+            <div class="image-side">
+                <h3>HDR Preview <span id="live-indicator" class="hidden" style="color: #4CAF50; font-size: 0.8rem;">(Live)</span></h3>
+                <div id="hdr-preview-container" style="padding: 40px; color: #666;">
+                    <div style="font-size: 3rem; margin-bottom: 20px;">✨</div>
+                    <p>Adjust intensity slider to see real-time HDR preview</p>
+                </div>
+                <img id="hdr-preview" class="image-preview hidden" alt="HDR Preview">
+            </div>
+        </div>
+        
+        <!-- Controls -->
+        <div style="padding: 20px 30px; background: #f8f9fa; border-top: 1px solid #e9ecef;">
+            <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 20px;">
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <label for="strength">HDR Intensity:</label>
+                    <input type="range" id="strength" name="strength" min="0.5" max="2.0" step="0.1" value="1.0">
+                    <span id="strength-value">1.0x</span>
+                </div>
+                
+                <button type="submit" class="btn" id="process-btn">
+                    🎨 Create HDR Version
+                </button>
+            </div>
+            <div style="margin-top: 10px; font-size: 0.9rem; color: #666;">
+                <strong>Tip:</strong> Higher intensity creates more dramatic HDR effects
+            </div>
+        </div>
+    </div>
+    
+    <!-- Processing State (hidden initially) -->
+    <div id="processing-section" class="hidden">
+        <div class="processing">
+            <div class="spinner"></div>
+            <h3>Creating HDR Version...</h3>
+            <p>This usually takes 2-3 seconds</p>
+        </div>
+    </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const uploadZone = document.getElementById('upload-zone');
+    const fileInput = document.getElementById('file-input');
+    const previewSection = document.getElementById('preview-section');
+    const processingSection = document.getElementById('processing-section');
+    const originalPreview = document.getElementById('original-preview');
+    const filename = document.getElementById('filename');
+    const uploadForm = document.getElementById('upload-form');
+    const strengthSlider = document.getElementById('strength');
+    const strengthValue = document.getElementById('strength-value');
+    
+    // File input change handler
+    fileInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            handleFileUpload(file);
+        }
+    });
+    
+    // Drag and drop handlers
+    uploadZone.addEventListener('click', () => fileInput.click());
+    
+    uploadZone.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        uploadZone.classList.add('dragover');
+    });
+    
+    uploadZone.addEventListener('dragleave', function(e) {
+        e.preventDefault();
+        uploadZone.classList.remove('dragover');
+    });
+    
+    uploadZone.addEventListener('drop', function(e) {
+        e.preventDefault();
+        uploadZone.classList.remove('dragover');
+        
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            fileInput.files = files;
+            handleFileUpload(files[0]);
+        }
+    });
+    
+    // Strength slider handler with real-time preview
+    let previewTimeout;
+    strengthSlider.addEventListener('input', function() {
+        const strength = this.value;
+        strengthValue.textContent = strength + 'x';
+        
+        // Debounce preview updates
+        clearTimeout(previewTimeout);
+        previewTimeout = setTimeout(() => {
+            if (fileInput.files.length > 0) {
+                updateHDRPreview(fileInput.files[0], strength);
+            }
+        }, 300); // 300ms delay to avoid too frequent updates
+    });
+    
+    // Form submit handler
+    uploadForm.addEventListener('submit', function(e) {
+        if (!fileInput.files.length) {
+            e.preventDefault();
+            alert('Please select a file first');
+            return;
+        }
+        
+        // Show processing state
+        previewSection.classList.add('hidden');
+        processingSection.classList.remove('hidden');
+    });
+    
+    function handleFileUpload(file) {
+        // Validate file type
+        if (!file.type.startsWith('image/')) {
+            alert('Please select an image file');
+            return;
+        }
+        
+        // Validate file size (10MB limit)
+        if (file.size > 10 * 1024 * 1024) {
+            alert('File size must be less than 10MB');
+            return;
+        }
+        
+        // Create preview
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            originalPreview.src = e.target.result;
+            filename.textContent = file.name;
+            
+            // Show preview section
+            uploadZone.style.display = 'none';
+            previewSection.classList.remove('hidden');
+            
+            // Generate initial HDR preview
+            updateHDRPreview(file, strengthSlider.value);
+        };
+        reader.readAsDataURL(file);
+    }
+    
+    // Allow changing file after selection
+    originalPreview.addEventListener('click', function() {
+        fileInput.click();
+    });
+    
+    // HDR Preview update function
+    async function updateHDRPreview(file, strength) {
+        const hdrPreview = document.getElementById('hdr-preview');
+        const hdrPreviewContainer = document.getElementById('hdr-preview-container');
+        const liveIndicator = document.getElementById('live-indicator');
+        
+        try {
+            // Show loading state
+            liveIndicator.textContent = '(Generating...)';
+            liveIndicator.classList.remove('hidden');
+            
+            // Create form data
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('strength', strength);
+            
+            // Request preview
+            const response = await fetch('/preview', {
+                method: 'POST',
+                body: formData
+            });
+            
+            if (!response.ok) {
+                throw new Error('Preview generation failed');
+            }
+            
+            // Get the image blob
+            const blob = await response.blob();
+            const imageUrl = URL.createObjectURL(blob);
+            
+            // Update preview image
+            hdrPreview.src = imageUrl;
+            hdrPreview.classList.remove('hidden');
+            hdrPreviewContainer.classList.add('hidden');
+            
+            // Update indicator
+            liveIndicator.textContent = '(Live)';
+            
+            // Cleanup old URL
+            setTimeout(() => URL.revokeObjectURL(imageUrl), 1000);
+            
+        } catch (error) {
+            console.error('Preview update failed:', error);
+            liveIndicator.textContent = '(Error)';
+            liveIndicator.style.color = '#f44336';
+            
+            // Fallback: hide preview, show placeholder
+            hdrPreview.classList.add('hidden');
+            hdrPreviewContainer.classList.remove('hidden');
+        }
+    }
+});
+</script>
+{% endblock %}

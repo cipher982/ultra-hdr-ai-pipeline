@@ -27,11 +27,7 @@ def main():
     parser.add_argument('--model', default='auto', help='AI model path or type (gmnet, synthetic, auto)')
     
     # Export control
-    parser.add_argument('--format', default='auto', choices=['auto', 'jpeg_r', 'heic'],
-                       help='Output format (auto=platform native)')
-    parser.add_argument('--quality', type=int, default=95, help='JPEG quality')
-    parser.add_argument('--encoder', default='auto', choices=['auto','swift','direct'],
-                       help='Encoder backend: swift (ImageIO), direct (Python), or auto')
+    parser.add_argument('--quality', type=int, default=95, help='JPEG quality (Ultra HDR JPEG only)')
     
     # Processing
     parser.add_argument('--max-side', type=int, default=4096, help='Max image dimension')
@@ -54,9 +50,7 @@ def main():
         max_side=args.max_side,
         model_type=args.model if args.model in ['auto', 'synthetic', 'gmnet'] else 'auto',
         model_path=args.model if args.model not in ['auto', 'synthetic', 'gmnet'] else None,
-        export_format=args.format,
         export_quality=args.quality,
-        encoder=args.encoder,
         timeout_s=args.timeout,
         strict_mode=args.strict,
         save_intermediate=args.debug,
@@ -69,17 +63,14 @@ def main():
         
     if args.verbose:
         print(f"Using model: {config.model_type} ({config.model_path or 'default'})")
-        print(f"Export format: {config.export_format}")
-        print(f"Encoder: {config.encoder}")
+        print(f"Export format: Ultra HDR JPEG")
+        print(f"Export quality: {config.export_quality}")
     
     try:
         result = run_gainmap_pipeline(args.img, args.out, config)
         
         print("✅ Ultra HDR pipeline completed!")
-        if result.ultrahdr_jpeg_path:
-            print(f"📱 Ultra HDR JPEG: {result.ultrahdr_jpeg_path}")
-        if result.heic_path:
-            print(f"🍎 HEIC: {result.heic_path}")
+        print(f"📱 Ultra HDR JPEG: {result.ultrahdr_jpeg_path}")
         
         if args.verbose:
             print(f"🤖 Model: {result.model_name}")
@@ -109,12 +100,7 @@ def _check_dependencies() -> bool:
         all_good = False
         
     # Export capabilities
-    print("✅ Direct Ultra HDR JPEG export")
-        
-    if platform.system() == "Darwin":
-        print("✅ macOS (HEIC export available)")
-    else:
-        print(f"ℹ️  {platform.system()} (HEIC unavailable)")
+    print("✅ Ultra HDR JPEG export (all platforms)")
         
     return all_good
 

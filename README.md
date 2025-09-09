@@ -35,22 +35,28 @@ The pipeline uses **GMNet** - cutting-edge research from ICLR 2025 - to predict 
 
 ## Quick Start
 
-1. **Install Dependencies**
-   ```bash
-   make setup
-   ```
+### 🌐 Web Interface (Recommended)
 
-2. **Process a Photo**
+1. **Setup & Launch**
    ```bash
-   # Use GMNet AI model (recommended)
-   hdr-process --img your_photo.jpg --out hdr_result.heic --model gmnet
-   
-   # Or use synthetic generation (fallback)
-   hdr-process --img your_photo.jpg --out hdr_result.heic --model synthetic
+   make setup && make web
    ```
+   
+2. **Open Browser**
+   Visit `http://localhost:8001` and drag & drop your photos!
+
+### 💻 Command Line Interface  
+
+```bash
+# Use GMNet AI model (recommended)
+hdr-process --img your_photo.jpg --out hdr_result.jpg --model gmnet
+
+# Or use synthetic generation (fallback)  
+hdr-process --img your_photo.jpg --out hdr_result.jpg --model synthetic
+```
 
 3. **View Results**
-   Open `hdr_result.heic` in **macOS Preview** or **iOS Photos** to see the HDR enhancement!
+   Open `hdr_result.jpg` in **macOS Preview** or transfer to **iOS Photos** to see the HDR enhancement!
 
 ## AI Models
 
@@ -75,9 +81,9 @@ The pipeline uses **GMNet** - cutting-edge research from ICLR 2025 - to predict 
 
 | Platform | Format | Status | Notes |
 |----------|--------|---------|-------|
-| **macOS Preview** | HEIC | ✅ Perfect | Native HDR rendering |
-| **iOS Photos** | HEIC | ✅ Perfect | Native HDR rendering |
-| **Android 14+** | Ultra HDR JPEG | 🚧 In Progress | Cross-platform standard |
+| **macOS Preview** | Ultra HDR JPEG | ✅ Perfect | Native HDR rendering |
+| **iOS Photos** | Ultra HDR JPEG | ✅ Perfect | Native HDR rendering |
+| **Android 14+** | Ultra HDR JPEG | ✅ Perfect | Cross-platform standard |
 | **Social Media** | Ultra HDR JPEG | 🔄 Varies | Platform-dependent support |
 
 ## Examples
@@ -95,31 +101,31 @@ The pipeline uses **GMNet** - cutting-edge research from ICLR 2025 - to predict 
 ### Batch Processing
 ```bash
 for img in photos/*.jpg; do
-  hdr-process --img "$img" --out "hdr_$(basename "$img" .jpg).heic" --model gmnet
+  hdr-process --img "$img" --out "hdr_$(basename "$img" .jpg).jpg" --model gmnet
 done
 ```
 
 ### Debug Mode
 ```bash
-hdr-process --img photo.jpg --out result.heic --model gmnet --debug
+hdr-process --img photo.jpg --out result.jpg --model gmnet --debug
 # Generates gain_map.png and metadata.json for inspection
 ```
 
-### Format Options
+### Development Mode
 ```bash
-# macOS/iOS (recommended)
-hdr-process --img photo.jpg --out result.heic --format heic
+# Web service with auto-reload for development
+make dev
 
-# Cross-platform (experimental)
-hdr-process --img photo.jpg --out result.jpg --format jpeg_r
+# Run validation tests
+make test
 ```
 
 ## Requirements
 
-- **macOS 14+**: For HEIC export and HDR Preview rendering
 - **Python 3.11+**: Managed automatically via `uv`
 - **8GB+ RAM**: For GMNet AI model inference
 - **HDR Display**: To see results (MacBook Pro, iPhone, etc.)
+- **Any OS**: Ultra HDR JPEG works cross-platform
 
 ## Research & Development
 

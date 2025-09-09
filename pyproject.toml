@@ -27,6 +27,11 @@ dependencies = [
   "opencv-python>=4.11.0.86",
   "pyyaml>=6.0.2",
   "nvidia-ml-py>=13.580.65",
+  # Web service dependencies
+  "fastapi>=0.104.0",
+  "uvicorn>=0.24.0",
+  "python-multipart>=0.0.6",  # For file uploads
+  "jinja2>=3.1.2",
 ]
 
 [project.optional-dependencies]

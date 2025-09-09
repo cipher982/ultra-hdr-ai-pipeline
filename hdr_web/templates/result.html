@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+
+{% block title %}HDR Enhanced - {{ original_filename }}{% endblock %}
+
+{% block content %}
+<!-- Success Header -->
+<div style="padding: 30px; text-align: center; background: linear-gradient(135deg, #4CAF50, #45a049); color: white;">
+    <h2>✅ HDR Enhancement Complete!</h2>
+    <p style="margin-top: 10px; opacity: 0.9;">{{ original_filename }} has been enhanced with HDR</p>
+</div>
+
+<!-- Before/After Comparison -->
+<div class="image-comparison">
+    <div class="image-side">
+        <h3>Original Image</h3>
+        <img src="/image/{{ job_id }}/original" class="image-preview" alt="Original" loading="lazy">
+        <div style="margin-top: 10px; color: #666; font-size: 0.9rem;">
+            Size: {{ "%.1f"|format(original_size / 1024 / 1024) }} MB
+        </div>
+    </div>
+    
+    <div class="arrow">→</div>
+    
+    <div class="image-side">
+        <h3>HDR Enhanced (Preview)</h3>
+        <img src="/image/{{ job_id }}/preview" class="image-preview" alt="HDR Enhanced" loading="lazy">
+        <div style="margin-top: 10px;">
+            <div style="color: #4CAF50; font-weight: 600; margin-bottom: 5px;">
+                🌟 Enhanced with {{ strength }}x intensity
+            </div>
+            <div style="color: #666; font-size: 0.9rem;">
+                Preview for web display
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Technical Info -->
+<div style="padding: 20px 30px; background: #f0f4ff; border-top: 1px solid #e0e6ff;">
+    <div style="display: flex; justify-content: center; gap: 30px; flex-wrap: wrap; color: #666; font-size: 0.9rem;">
+        <div>🤖 Model: {{ model_name }}</div>
+        <div>⚡ Processing: ~2s</div>
+        <div>📱 Format: Ultra HDR JPEG{% if has_heic %} + HEIC{% endif %}</div>
+    </div>
+</div>
+
+<!-- Download Section -->
+<div class="download-section">
+    <h3 style="margin-bottom: 20px;">Download Your HDR Images</h3>
+    
+    <div class="download-buttons">
+        {% if has_hdr %}
+        <a href="/download/{{ job_id }}/hdr" class="btn" download>
+            📥 Download Ultra HDR JPEG
+        </a>
+        {% endif %}
+        
+        {% if has_heic %}
+        <a href="/download/{{ job_id }}/heic" class="btn" download>
+            📱 Download HEIC (iOS/macOS)
+        </a>
+        {% endif %}
+    </div>
+    
+    <div class="file-info">
+        {% if has_hdr %}
+        <div>Ultra HDR JPEG: {{ "%.1f"|format(hdr_size / 1024 / 1024) }} MB • Works on Android, Windows, Chrome OS</div>
+        {% endif %}
+        {% if has_heic %}
+        <div>HEIC Format: {{ "%.1f"|format(heic_size / 1024 / 1024) }} MB • Optimized for iPhone, iPad, Mac</div>
+        {% endif %}
+        <div style="margin-top: 10px; font-style: italic;">
+            💡 Open downloaded files in native apps (Photos, Preview) to see full HDR effect
+        </div>
+    </div>
+</div>
+
+<!-- Instructions -->
+<div style="padding: 30px; background: #fff3cd; border-top: 1px solid #ffeaa7; color: #856404;">
+    <h4 style="margin-bottom: 15px;">🎯 How to View Your HDR Images</h4>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px;">
+        <div>
+            <strong>📱 iPhone/iPad:</strong><br>
+            Open in Photos app for automatic HDR display
+        </div>
+        <div>
+            <strong>💻 Mac:</strong><br>
+            Open in Preview or Photos for HDR tone mapping
+        </div>
+        <div>
+            <strong>🤖 Android:</strong><br>
+            Open in Google Photos or compatible gallery apps
+        </div>
+    </div>
+    <div style="margin-top: 15px; font-size: 0.9rem; opacity: 0.8;">
+        Note: The preview above simulates the HDR effect for web browsers. Download the files to see true HDR on supported devices.
+    </div>
+</div>
+
+<!-- Action Buttons -->
+<div style="padding: 30px; text-align: center; border-top: 1px solid #e9ecef;">
+    <a href="/" class="btn" style="background: #6c757d;">
+        📸 Process Another Image
+    </a>
+</div>
+
+<!-- Social Sharing (Optional) -->
+<div style="padding: 20px; text-align: center; color: #666; font-size: 0.9rem;">
+    <p>Love the results? Share HDR Photo Restorer with others!</p>
+    <div style="margin-top: 10px;">
+        <button onclick="copyLink()" style="background: none; border: 1px solid #ddd; padding: 8px 16px; border-radius: 5px; cursor: pointer;">
+            🔗 Copy Link
+        </button>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Copy link functionality
+function copyLink() {
+    navigator.clipboard.writeText(window.location.origin).then(function() {
+        alert('Link copied to clipboard!');
+    }).catch(function() {
+        // Fallback for older browsers
+        const dummy = document.createElement('textarea');
+        document.body.appendChild(dummy);
+        dummy.value = window.location.origin;
+        dummy.select();
+        document.execCommand('copy');
+        document.body.removeChild(dummy);
+        alert('Link copied to clipboard!');
+    });
+}
+
+// Add download tracking (optional)
+document.querySelectorAll('a[download]').forEach(link => {
+    link.addEventListener('click', function() {
+        console.log('Downloaded:', this.href);
+        // Could add analytics here
+    });
+});
+
+// Auto-refresh if processing is still ongoing (fallback)
+{% if not has_hdr and not has_heic %}
+setTimeout(function() {
+    window.location.reload();
+}, 3000);
+{% endif %}
+</script>
+{% endblock %}
