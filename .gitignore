@@ -1,118 +1,62 @@
-# Virtual environments and caches
-.venv/
+# Python
 __pycache__/
-.pytest_cache/
-
-# Build artifacts and local bins
-bin/
-build/
-dist/
-*.so
-*.dll
-
-# Generated outputs
-out*/
-outputs*/
-
-# Images and large binaries (keep tiny samples under samples/)
-images/*.heic
-images/*.HEIC
-!images/5D2AF0A6-9912-4CFA-B4EF-1A05489FE557.heic
-images/*_hdr.tiff
-images/*_gainmap.png
-images/*_sdr_preview.jpg
-images/*_gainmap.jpg
-images/*_gainmap.heic
-images/.DS_Store
-.DS_Store
-
-# Weights and checkpoints
-weights/
-*.h5
-!images/01_original_iphone_hdr.jpeg
-!images/02_edited_sdr.jpeg
-*.ckpt
-*.pth
-
-# Lock files (optional)
-# uv.lock
-
-# Embedded git repos (handle separately)
-tools/libultrahdr/
-
-archive/
-screenshots/
-_test/
-# Build artifacts
-__pycache__/
-*.pyc
+*.py[cod]
 *.pyo
 *.pyd
 .Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-share/python-wheels/
 *.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
+.eggs/
+dist/
+build/
 
-# Testing artifacts
-.coverage
-.pytest_cache/
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-*.py,cover
-.hypothesis/
-
-# Environments
+# Virtual environments
+.venv/
 .env
-.venv
-env/
 venv/
-ENV/
-env.bak/
-venv.bak/
+env/
 
-# IDEs
+# Testing 
+.pytest_cache/
+.coverage
+.cache
+*.cover
+
+# IDEs and OS
+.DS_Store
 .vscode/
 .idea/
 *.swp
-*.swo
 *~
 
-# OS
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
+# Project outputs (prevent test files from being committed)
+out*.jpg
+out*.jpeg
+out*.heic
+out*.png
+test_*.jpg
+test_*.jpeg
+ultrahdr_*.jpg
+*_output.*
+*_test.*
+experiments/
+samples/
+archive/
 
-# Project specific
-/GMNet/
-/archive/
-*.png
-*.jpg
-*.jpeg
-*.heic
-*.tiff
-*.npy
-/tools/libultrahdr/
-/samples/
-/tests/
+# AI Models (keep checkpoints but ignore in git)
+GMNet/
+*.pth
+*.h5
+*.ckpt
+weights/
 
-CLAUDE.md
+# Keep essential test images only
+images/*.tiff
+images/*_hdr.*
+images/*_gainmap.*
+images/*_sdr_preview.*
+!images/01_original_iphone_hdr.jpeg
+!images/02_edited_sdr.jpeg  
+!images/5D2AF0A6-9912-4CFA-B4EF-1A05489FE557.heic
+
+# External tools
+tools/

@@ -31,6 +31,8 @@ def main():
     parser.add_argument('--format', default='auto', choices=['auto', 'jpeg_r', 'heic'],
                        help='Output format (auto=platform native)')
     parser.add_argument('--quality', type=int, default=95, help='JPEG quality')
+    parser.add_argument('--encoder', default='auto', choices=['auto','swift','direct'],
+                       help='Encoder backend: swift (ImageIO), direct (Python), or auto')
     
     # Processing
     parser.add_argument('--max-side', type=int, default=4096, help='Max image dimension')
@@ -55,6 +57,7 @@ def main():
         model_path=args.model if args.model not in ['auto', 'synthetic', 'gmnet'] else None,
         export_format=args.format,
         export_quality=args.quality,
+        encoder=args.encoder,
         timeout_s=args.timeout,
         strict_mode=args.strict,
         save_intermediate=args.debug,
@@ -68,6 +71,7 @@ def main():
     if args.verbose:
         print(f"Using model: {config.model_type} ({config.model_path or 'default'})")
         print(f"Export format: {config.export_format}")
+        print(f"Encoder: {config.encoder}")
     
     try:
         result = run_gainmap_pipeline(args.img, args.out, config)
