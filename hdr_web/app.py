@@ -7,6 +7,7 @@ Upload SDR images and get HDR versions back with visual preview.
 import os
 import tempfile
 import uuid
+import asyncio
 from pathlib import Path
 from typing import Optional
 import shutil
@@ -51,7 +52,45 @@ def cleanup_old_files():
             except:
                 pass
 
+def cleanup_job_files(job_id: str, keep_input: bool = False):
+    """Clean up files for a specific job"""
+    patterns = [f"{job_id}_hdr.jpg", f"{job_id}_preview.jpg"]
+    if not keep_input:
+        patterns.append(f"{job_id}_input.jpg")
+    
+    for pattern in patterns:
+        file_path = TEMP_DIR / pattern
+        if file_path.exists():
+            try:
+                file_path.unlink()
+            except:
+                pass
+
+def cleanup_preview_files(preview_id: str):
+    """Clean up preview files immediately"""
+    patterns = [f"preview_{preview_id}_input.jpg", f"preview_{preview_id}_output.jpg"]
+    
+    for pattern in patterns:
+        file_path = TEMP_DIR / pattern
+        if file_path.exists():
+            try:
+                file_path.unlink()
+            except:
+                pass
+
 cleanup_old_files()
+
+# Background cleanup task
+async def background_cleanup():
+    """Periodically clean up old files"""
+    while True:
+        await asyncio.sleep(300)  # Every 5 minutes
+        cleanup_old_files()
+
+# Start background task
+@app.on_event("startup")
+async def startup_event():
+    asyncio.create_task(background_cleanup())
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -138,7 +177,7 @@ async def process_image(
         )
         
         # Return results page
-        return templates.TemplateResponse("result.html", {
+        response = templates.TemplateResponse("result.html", {
             "request": request,
             "job_id": job_id,
             "original_filename": file.filename,
@@ -148,6 +187,11 @@ async def process_image(
             "has_hdr": True,  # We validated it exists above
             "strength": strength
         })
+        
+        # Schedule cleanup of intermediate files (keep input for potential reprocessing)
+        cleanup_job_files(job_id, keep_input=True)
+        
+        return response
         
     except GainMapPipelineError as e:
         # Pipeline-specific errors with user-friendly messages
@@ -227,7 +271,12 @@ async def generate_live_preview(
         )
         
         # Return the preview image
-        return FileResponse(preview_path, media_type="image/jpeg")
+        response = FileResponse(preview_path, media_type="image/jpeg")
+        
+        # Clean up preview files immediately after serving
+        cleanup_preview_files(preview_id)
+        
+        return response
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Preview generation failed: {e}")
@@ -251,11 +300,13 @@ async def download_file(job_id: str, file_type: str):
     if file_size < 50000:  # Ultra HDR should be at least 50KB
         raise HTTPException(status_code=500, detail="HDR file appears corrupted (too small)")
     
-    return FileResponse(
+    response = FileResponse(
         file_path, 
         filename="hdr_enhanced.jpg",
         media_type="image/jpeg"
     )
+    
+    return response
 
 
 @app.get("/health")
