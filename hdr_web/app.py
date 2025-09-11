@@ -35,8 +35,8 @@ app.mount("/static", StaticFiles(directory="hdr_web/static"), name="static")
 MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB limit
 ALLOWED_EXTENSIONS = {'.jpg', '.jpeg', '.png'}
 
-# Temporary storage for processed files (in project directory)
-TEMP_DIR = Path("temp_web")
+# Temporary storage for processed files (in system temp directory)
+TEMP_DIR = Path(tempfile.gettempdir()) / "hdr_web"
 TEMP_DIR.mkdir(exist_ok=True)
 
 # Clean up old files on startup
@@ -78,8 +78,8 @@ def cleanup_preview_files(preview_id: str):
             except:
                 pass
 
-# Disabled auto-cleanup for debugging
-# cleanup_old_files()
+# Clean up old files on startup
+cleanup_old_files()
 
 # Background cleanup task (disabled)
 # async def background_cleanup():
@@ -88,11 +88,20 @@ def cleanup_preview_files(preview_id: str):
 #         await asyncio.sleep(300)  # Every 5 minutes
 #         cleanup_old_files()
 
-# Start background task (disabled)  
 @app.on_event("startup")
 async def startup_event():
-    """Startup event - auto-cleanup disabled for debugging"""
-    print("HDR Web Service started - auto-cleanup disabled for debugging")
+    """Startup event with cleanup"""
+    cleanup_old_files()
+    print("HDR Web Service started")
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Cleanup temporary files on shutdown"""
+    try:
+        cleanup_old_files()
+        print("HDR Web Service shutdown - temporary files cleaned")
+    except Exception as e:
+        print(f"Warning: Cleanup on shutdown failed: {e}")
 
 
 @app.post("/admin/cleanup")
@@ -210,7 +219,8 @@ async def process_image(
             "strength": strength
         })
         
-        # No auto-cleanup - keep files for debugging and manual inspection
+        # Clean up job files after successful processing (keep input for debugging)
+        cleanup_job_files(job_id, keep_input=True)
         
         return response
         
@@ -294,8 +304,16 @@ async def generate_live_preview(
             strength=strength
         )
         
-        # Return the preview image (no auto-cleanup)
+        # Return the preview image and clean up preview files after 5 minutes
         response = FileResponse(preview_path, media_type="image/jpeg")
+        
+        # Schedule cleanup of preview files
+        async def delayed_cleanup():
+            await asyncio.sleep(300)  # 5 minutes
+            cleanup_preview_files(preview_id)
+        
+        asyncio.create_task(delayed_cleanup())
+        
         return response
         
     except Exception as e:
