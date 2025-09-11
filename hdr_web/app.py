@@ -78,19 +78,31 @@ def cleanup_preview_files(preview_id: str):
             except:
                 pass
 
-cleanup_old_files()
+# Disabled auto-cleanup for debugging
+# cleanup_old_files()
 
-# Background cleanup task
-async def background_cleanup():
-    """Periodically clean up old files"""
-    while True:
-        await asyncio.sleep(300)  # Every 5 minutes
-        cleanup_old_files()
+# Background cleanup task (disabled)
+# async def background_cleanup():
+#     """Periodically clean up old files"""
+#     while True:
+#         await asyncio.sleep(300)  # Every 5 minutes
+#         cleanup_old_files()
 
-# Start background task
+# Start background task (disabled)  
 @app.on_event("startup")
 async def startup_event():
-    asyncio.create_task(background_cleanup())
+    """Startup event - auto-cleanup disabled for debugging"""
+    print("HDR Web Service started - auto-cleanup disabled for debugging")
+
+
+@app.post("/admin/cleanup")
+async def manual_cleanup():
+    """Manual cleanup endpoint for development/debugging"""
+    try:
+        cleanup_old_files()
+        return {"status": "success", "message": "Temporary files cleaned up"}
+    except Exception as e:
+        return {"status": "error", "message": f"Cleanup failed: {e}"}
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -192,14 +204,13 @@ async def process_image(
             "job_id": job_id,
             "original_filename": file.filename,
             "model_name": result.model_name,
-            "original_size": original_size,
+            "original_size": input_path.stat().st_size,
             "hdr_size": hdr_size,
             "has_hdr": True,  # We validated it exists above
             "strength": strength
         })
         
-        # Schedule cleanup of intermediate files (keep input for potential reprocessing)
-        cleanup_job_files(job_id, keep_input=True)
+        # No auto-cleanup - keep files for debugging and manual inspection
         
         return response
         
@@ -283,21 +294,8 @@ async def generate_live_preview(
             strength=strength
         )
         
-        # Return the preview image with background cleanup
+        # Return the preview image (no auto-cleanup)
         response = FileResponse(preview_path, media_type="image/jpeg")
-        
-        # Schedule cleanup after response is served (not immediately)
-        def schedule_cleanup():
-            import asyncio
-            import threading
-            def delayed_cleanup():
-                import time
-                time.sleep(2)  # Wait for response to be fully served
-                cleanup_preview_files(preview_id)
-            
-            threading.Thread(target=delayed_cleanup, daemon=True).start()
-        
-        schedule_cleanup()
         return response
         
     except Exception as e:

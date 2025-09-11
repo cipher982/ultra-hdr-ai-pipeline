@@ -67,26 +67,20 @@ class TestRealWorldWebIntegration:
             response = requests.post(f"{real_world_server}/process", files=files, data=data)
         
         # Should succeed without the crashes we saw in manual testing
-        assert response.status_code in [200, 201], f"Real SDR processing failed: {response.status_code} - {response.text}"
+        assert response.status_code == 200, f"Real SDR processing failed: {response.status_code} - {response.text[:500]}"
         
-        # Response should be substantial (not empty)
-        assert len(response.content) > 50000, f"Response too small: {len(response.content)} bytes"
+        # Response should be HTML result page (not direct image download)
+        assert "text/html" in response.headers.get("content-type", ""), "Expected HTML response"
         
-        # Should be valid HDR JPEG
-        temp_output = Path("test_real_world_output.jpg")
-        try:
-            with open(temp_output, 'wb') as f:
-                f.write(response.content)
-            
-            # Validate it's actually HDR
-            from hdr.gainmap_pipeline import validate_ultrahdr_structure
-            validation = validate_ultrahdr_structure(str(temp_output))
-            
-            assert validation['valid'], f"Real-world output not valid HDR: {validation['errors']}"
-            
-        finally:
-            if temp_output.exists():
-                temp_output.unlink()
+        # Should contain success indicators in HTML
+        html_content = response.text
+        success_indicators = ["HDR Enhanced", "Download", "GMNet", "Ultra HDR JPEG"]
+        
+        for indicator in success_indicators:
+            assert indicator in html_content, f"Success indicator '{indicator}' missing from response"
+        
+        # Should show reasonable file size info in the HTML
+        assert "MB" in html_content or "KB" in html_content, "No file size info in response"
     
     @pytest.mark.integration
     def test_preview_endpoint_with_real_image(self, real_world_server):
