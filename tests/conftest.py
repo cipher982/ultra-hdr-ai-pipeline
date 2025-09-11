@@ -17,12 +17,6 @@ def test_data_dir() -> Path:
     return Path(__file__).parent.parent / "images"
 
 
-@pytest.fixture(scope="session") 
-def golden_masters_dir() -> Path:
-    """Path to golden master reference files"""
-    return Path(__file__).parent / "golden_masters"
-
-
 @pytest.fixture(scope="session")
 def fixtures_dir() -> Path:
     """Path to test fixtures"""
@@ -40,30 +34,45 @@ def temp_dir() -> Generator[Path, None, None]:
 
 
 @pytest.fixture(scope="session")
-def sample_sdr_image(test_data_dir: Path) -> Path:
+def sample_sdr_image(fixtures_dir: Path) -> Path:
     """Path to sample SDR JPEG for testing"""
-    sdr_path = test_data_dir / "02_edited_sdr.jpeg"
+    sdr_path = fixtures_dir / "input" / "sdr_sample.jpg"
     if not sdr_path.exists():
         pytest.skip(f"Sample SDR image not found: {sdr_path}")
     return sdr_path
 
 
 @pytest.fixture(scope="session")
-def reference_hdr_image(test_data_dir: Path) -> Path:
+def reference_hdr_image(fixtures_dir: Path) -> Path:
     """Path to iPhone HDR reference image"""
-    hdr_path = test_data_dir / "01_original_iphone_hdr.jpeg"
+    hdr_path = fixtures_dir / "reference" / "iphone_hdr.jpg"
     if not hdr_path.exists():
         pytest.skip(f"Reference HDR image not found: {hdr_path}")
     return hdr_path
 
 
 @pytest.fixture(scope="session") 
-def example_hdr_output(test_data_dir: Path) -> Path:
+def example_hdr_output(fixtures_dir: Path) -> Path:
     """Path to example pipeline HDR output"""
-    output_path = test_data_dir / "example_hdr_enhanced.jpg"
+    output_path = fixtures_dir / "reference" / "pipeline_output.jpg"
     if not output_path.exists():
         pytest.skip(f"Example HDR output not found: {output_path}")
     return output_path
+
+
+@pytest.fixture(scope="session")
+def iphone_heic_reference(fixtures_dir: Path) -> Path:
+    """Path to iPhone HEIC HDR reference"""
+    heic_path = fixtures_dir / "reference" / "iphone_hdr.heic"
+    if not heic_path.exists():
+        pytest.skip(f"iPhone HEIC reference not found: {heic_path}")
+    return heic_path
+
+
+@pytest.fixture(scope="session")
+def golden_masters_dir(fixtures_dir: Path) -> Path:
+    """Path to golden master reference files"""
+    return fixtures_dir / "golden_masters"
 
 
 @pytest.fixture

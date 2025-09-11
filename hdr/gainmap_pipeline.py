@@ -135,7 +135,7 @@ def _save_sdr_preview(rgb01: np.ndarray, path: str, strip_exif: bool = True) -> 
             im.info.pop('exif', None)
         # Prefer Display-P3 ICC taken from the iPhone reference; else fallback to sRGB.
         icc_bytes = None
-        ref_icc = _read_icc_profile_from_jpeg('images/01_original_iphone_hdr.jpeg')
+        ref_icc = _read_icc_profile_from_jpeg('tests/fixtures/reference/iphone_hdr.jpg')
         if ref_icc:
             icc_bytes = ref_icc
         try:

@@ -1,7 +1,7 @@
 PY=uv run
 
 # Defaults
-IMG?=./images/02_edited_sdr.jpeg
+IMG?=./tests/fixtures/input/sdr_sample.jpg
 OUT?=./02_gmnet_result.jpg
 MODEL?=gmnet
 PORT?=8001

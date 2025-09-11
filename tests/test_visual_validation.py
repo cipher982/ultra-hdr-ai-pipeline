@@ -264,8 +264,8 @@ class TestHDRReferenceCompliance:
         if not golden_output.exists():
             config = GainMapPipelineConfig(model_type="synthetic", export_quality=95)
             run_gainmap_pipeline(
-                input_path=str(synthetic_sdr_image),
-                output_path=str(golden_output),
+                img_path=str(synthetic_sdr_image),
+                out_path=str(golden_output),
                 config=config
             )
         
@@ -284,8 +284,8 @@ class TestHDRReferenceCompliance:
         current_output = temp_dir / "current_synthetic.jpg"
         config = GainMapPipelineConfig(model_type="synthetic", export_quality=95)
         run_gainmap_pipeline(
-            input_path=str(synthetic_sdr_image),
-            output_path=str(current_output),
+            img_path=str(synthetic_sdr_image),
+            out_path=str(current_output),
             config=config
         )
         

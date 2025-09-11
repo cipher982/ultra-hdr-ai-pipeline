@@ -10,7 +10,7 @@ from hdr.gainmap_pipeline import validate_ultrahdr_structure
 
 def test_reference_hdr():
     """Test validation against iPhone HDR reference"""
-    ref_path = "images/01_original_iphone_hdr.jpeg"
+    ref_path = "tests/fixtures/reference/iphone_hdr.jpg"
     
     if not os.path.exists(ref_path):
         print(f"❌ Reference file not found: {ref_path}")
@@ -34,7 +34,7 @@ def test_reference_hdr():
 
 def test_working_output():
     """Test validation against our working output"""
-    output_path = "images/example_hdr_enhanced.jpg"
+    output_path = "tests/fixtures/reference/pipeline_output.jpg"
     
     if not os.path.exists(output_path):
         print(f"❌ Working output not found: {output_path}")
@@ -58,7 +58,7 @@ def test_working_output():
 
 def test_regular_jpeg():
     """Test validation against regular SDR JPEG"""
-    sdr_path = "images/02_edited_sdr.jpeg"
+    sdr_path = "tests/fixtures/input/sdr_sample.jpg"
     
     if not os.path.exists(sdr_path):
         print(f"❌ SDR reference not found: {sdr_path}")

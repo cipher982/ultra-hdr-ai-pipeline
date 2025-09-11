@@ -328,7 +328,7 @@ def _build_icc_app2(icc_profile: bytes) -> bytes:
 
 def _extract_iphone_extra_app2() -> Optional[bytes]:
     """Extract an APP2 segment from iPhone JPEG that is not MPF or ICC (if any)."""
-    path = "images/01_original_iphone_hdr.jpeg"
+    path = "tests/fixtures/reference/iphone_hdr.jpg"
     if not os.path.exists(path):
         return None
     try:
@@ -356,7 +356,7 @@ def _extract_iphone_extra_app2() -> Optional[bytes]:
 
 
 def _extract_iphone_gainmap_jpeg() -> Optional[bytes]:
-    path = "images/01_original_iphone_hdr.jpeg"
+    path = "tests/fixtures/reference/iphone_hdr.jpg"
     if not os.path.exists(path):
         return None
     try:
