@@ -34,7 +34,7 @@ def test_reference_hdr():
 
 def test_working_output():
     """Test validation against our working output"""
-    output_path = "images/hdr_enhanced.jpg"
+    output_path = "images/example_hdr_enhanced.jpg"
     
     if not os.path.exists(output_path):
         print(f"❌ Working output not found: {output_path}")

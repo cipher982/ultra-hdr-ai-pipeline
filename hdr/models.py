@@ -285,6 +285,16 @@ class SyntheticGainMapModel(GainMapModel):
     def predict(self, sdr_rgb: np.ndarray) -> GainMapPrediction:
         """Generate synthetic gain map based on luminance"""
         
+        # Input validation
+        if sdr_rgb.ndim != 3:
+            raise ValueError(f"Expected 3D array (H, W, C), got {sdr_rgb.ndim}D array")
+        if sdr_rgb.shape[2] != 3:
+            raise ValueError(f"Expected 3 channels (RGB), got {sdr_rgb.shape[2]} channels")
+        if sdr_rgb.size == 0:
+            raise ValueError("Input image cannot be empty")
+        if sdr_rgb.min() < 0 or sdr_rgb.max() > 1:
+            raise ValueError("Input values must be in range [0, 1]")
+        
         # Compute luminance (Rec. 709 weights)
         L = 0.2126 * sdr_rgb[..., 0] + 0.7152 * sdr_rgb[..., 1] + 0.0722 * sdr_rgb[..., 2]
         
@@ -314,7 +324,7 @@ class SyntheticGainMapModel(GainMapModel):
             gain_map=gain_map,
             gain_min_log2=gain_min,
             gain_max_log2=gain_max,
-            confidence=0.0  # Synthetic, no real confidence
+            confidence=0.5  # Synthetic model - reasonable default
         )
     
     def is_available(self) -> bool:
