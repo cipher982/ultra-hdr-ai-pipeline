@@ -204,6 +204,11 @@
             display: none;
         }
         
+        /* Navigation hover effects */
+        nav a:hover {
+            background: rgba(255,255,255,0.2) !important;
+        }
+        
         /* Mobile responsive */
         @media (max-width: 768px) {
             .image-comparison {
@@ -228,11 +233,16 @@
     {% block extra_css %}{% endblock %}
 </head>
 <body>
+    <!-- Top Navigation -->
+    <nav style="padding: 20px 30px; background: rgba(255,255,255,0.1); backdrop-filter: blur(10px);">
+        <div style="max-width: 1200px; margin: 0 auto; text-align: center;">
+            <a href="/" style="color: white; text-decoration: none; font-weight: 700; font-size: 1.5rem; display: inline-block; padding: 8px 20px; border-radius: 8px; transition: background 0.2s;">
+                ✨ HDR Photo Restorer
+            </a>
+        </div>
+    </nav>
+
     <div class="container">
-        <header>
-            <h1>✨ HDR Photo Restorer</h1>
-            <p class="subtitle">Restore HDR to your AI-edited photos</p>
-        </header>
         
         <main class="main-content">
             {% block content %}{% endblock %}

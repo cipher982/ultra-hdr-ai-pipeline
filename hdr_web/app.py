@@ -13,7 +13,7 @@ from typing import Optional
 import shutil
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import HTMLResponse, FileResponse
+from fastapi.responses import HTMLResponse, FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from PIL import Image
@@ -78,30 +78,15 @@ def cleanup_preview_files(preview_id: str):
             except:
                 pass
 
-# Clean up old files on startup
-cleanup_old_files()
-
-# Background cleanup task (disabled)
-# async def background_cleanup():
-#     """Periodically clean up old files"""
-#     while True:
-#         await asyncio.sleep(300)  # Every 5 minutes
-#         cleanup_old_files()
-
 @app.on_event("startup")
 async def startup_event():
-    """Startup event with cleanup"""
-    cleanup_old_files()
+    """Startup event"""
     print("HDR Web Service started")
 
-@app.on_event("shutdown")
+@app.on_event("shutdown") 
 async def shutdown_event():
-    """Cleanup temporary files on shutdown"""
-    try:
-        cleanup_old_files()
-        print("HDR Web Service shutdown - temporary files cleaned")
-    except Exception as e:
-        print(f"Warning: Cleanup on shutdown failed: {e}")
+    """Shutdown event"""
+    print("HDR Web Service shutdown")
 
 
 @app.post("/admin/cleanup")
@@ -207,22 +192,21 @@ async def process_image(
             strength=strength
         )
         
-        # Return results page
-        response = templates.TemplateResponse("result.html", {
-            "request": request,
-            "job_id": job_id,
+        # Store job metadata for results page (simple in-memory cache)
+        if not hasattr(app.state, 'job_cache'):
+            app.state.job_cache = {}
+        
+        app.state.job_cache[job_id] = {
             "original_filename": file.filename,
             "model_name": result.model_name,
             "original_size": input_path.stat().st_size,
             "hdr_size": hdr_size,
-            "has_hdr": True,  # We validated it exists above
+            "has_hdr": True,
             "strength": strength
-        })
+        }
         
-        # Clean up job files after successful processing (keep input for debugging)
-        cleanup_job_files(job_id, keep_input=True)
-        
-        return response
+        # Redirect to results page (POST-redirect-GET pattern)
+        return RedirectResponse(url=f"/results/{job_id}", status_code=303)
         
     except GainMapPipelineError as e:
         # Pipeline-specific errors with user-friendly messages
@@ -250,6 +234,30 @@ async def process_image(
         print(f"Error type: {type(e)}")
         print(f"Traceback: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"Unexpected error: {e}")
+
+
+@app.get("/results/{job_id}")
+async def show_results(request: Request, job_id: str):
+    """Show results page for a processed job"""
+    
+    # Get job metadata from cache
+    if not hasattr(app.state, 'job_cache') or job_id not in app.state.job_cache:
+        raise HTTPException(status_code=404, detail="Results not found or expired")
+    
+    job_data = app.state.job_cache[job_id]
+    
+    # Verify files still exist
+    hdr_path = TEMP_DIR / f"{job_id}_hdr.jpg"
+    preview_path = TEMP_DIR / f"{job_id}_preview.jpg"
+    
+    if not hdr_path.exists():
+        raise HTTPException(status_code=404, detail="HDR file not found or expired")
+    
+    return templates.TemplateResponse("result.html", {
+        "request": request,
+        "job_id": job_id,
+        **job_data
+    })
 
 
 @app.get("/image/{job_id}/{image_type}")
@@ -304,17 +312,8 @@ async def generate_live_preview(
             strength=strength
         )
         
-        # Return the preview image and clean up preview files after 5 minutes
-        response = FileResponse(preview_path, media_type="image/jpeg")
-        
-        # Schedule cleanup of preview files
-        async def delayed_cleanup():
-            await asyncio.sleep(300)  # 5 minutes
-            cleanup_preview_files(preview_id)
-        
-        asyncio.create_task(delayed_cleanup())
-        
-        return response
+        # Return the preview image (no cleanup needed - system temp handles it)
+        return FileResponse(preview_path, media_type="image/jpeg")
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Preview generation failed: {e}")
