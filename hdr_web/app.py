@@ -158,10 +158,20 @@ async def process_image(
         
         hdr_size = hdr_output_path.stat().st_size
         
-        # Validate minimum size (Ultra HDR should be larger than SDR)
-        original_size = input_path.stat().st_size
-        if hdr_size <= original_size + 10000:  # Should be significantly larger due to gain map
-            raise HTTPException(status_code=500, detail="HDR processing failed - output too small (may not contain gain map)")
+        # Validate HDR structure instead of just size (HDR might be smaller due to compression)
+        from hdr.gainmap_pipeline import validate_ultrahdr_structure
+        validation = validate_ultrahdr_structure(str(hdr_output_path))
+        
+        if not validation['valid']:
+            errors = '; '.join(validation['errors'])
+            raise HTTPException(status_code=500, detail=f"HDR processing failed - {errors}")
+        
+        # Ensure file is substantial but not unreasonably large
+        if hdr_size < 10000:  # At least 10KB
+            raise HTTPException(status_code=500, detail="HDR processing failed - output file too small") 
+        
+        if hdr_size > 50 * 1024 * 1024:  # Max 50MB
+            raise HTTPException(status_code=500, detail="HDR processing failed - output file too large")
         
         # Validate JPEG header
         with open(hdr_output_path, 'rb') as f:
@@ -214,8 +224,11 @@ async def process_image(
     
     except Exception as e:
         # Log the actual error for debugging but return user-friendly message
+        import traceback
         print(f"Unexpected error: {e}")
-        raise HTTPException(status_code=500, detail="An unexpected error occurred. Please try again.")
+        print(f"Error type: {type(e)}")
+        print(f"Traceback: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"Unexpected error: {e}")
 
 
 @app.get("/image/{job_id}/{image_type}")
@@ -270,12 +283,21 @@ async def generate_live_preview(
             strength=strength
         )
         
-        # Return the preview image
+        # Return the preview image with background cleanup
         response = FileResponse(preview_path, media_type="image/jpeg")
         
-        # Clean up preview files immediately after serving
-        cleanup_preview_files(preview_id)
+        # Schedule cleanup after response is served (not immediately)
+        def schedule_cleanup():
+            import asyncio
+            import threading
+            def delayed_cleanup():
+                import time
+                time.sleep(2)  # Wait for response to be fully served
+                cleanup_preview_files(preview_id)
+            
+            threading.Thread(target=delayed_cleanup, daemon=True).start()
         
+        schedule_cleanup()
         return response
         
     except Exception as e:
