@@ -112,6 +112,9 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     
+    // Initialize slider display value on page load
+    strengthValue.textContent = strengthSlider.value + 'x';
+    
     // Strength slider handler with real-time preview
     let previewTimeout;
     strengthSlider.addEventListener('input', function() {
