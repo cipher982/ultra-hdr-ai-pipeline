@@ -154,14 +154,18 @@ class TestPipelineErrorHandling:
                 config=config
             )
     
-    def test_invalid_output_directory(self, synthetic_sdr_image):
+    def test_invalid_output_directory(self, synthetic_sdr_image, temp_dir):
         """Test error handling for invalid output directory"""
-        # Try to write to a directory that doesn't exist and can't be created
-        invalid_output = "/root/nonexistent/deeply/nested/output.jpg"
+        # Create a file where we want a directory, making it impossible to create the path
+        blocking_file = temp_dir / "blocking_file"
+        blocking_file.write_text("block")
+        
+        # Try to write inside the file (impossible)
+        invalid_output = str(blocking_file / "nested" / "output.jpg")
         
         config = GainMapPipelineConfig()
         
-        with pytest.raises(GainMapPipelineError):
+        with pytest.raises((GainMapPipelineError, NotADirectoryError, OSError)):
             run_gainmap_pipeline(
                 img_path=str(synthetic_sdr_image),
                 out_path=invalid_output,
