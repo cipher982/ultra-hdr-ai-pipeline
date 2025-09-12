@@ -108,8 +108,7 @@ async def home(request: Request):
 @app.post("/process")
 async def process_image(
     request: Request,
-    file: UploadFile = File(...),
-    strength: float = Form(1.0)
+    file: UploadFile = File(...)
 ):
     """Process uploaded image and return results page"""
     
@@ -146,7 +145,7 @@ async def process_image(
         hdr_output_path = TEMP_DIR / f"{job_id}_hdr.jpg"
         preview_path = TEMP_DIR / f"{job_id}_preview.jpg"
         
-        # Configure HDR pipeline (using working direct exporter only)
+        # Configure HDR pipeline
         config = GainMapPipelineConfig(
             model_type="auto",
             export_quality=95,
@@ -189,7 +188,7 @@ async def process_image(
         create_hdr_preview(
             str(input_path), 
             str(preview_path),
-            strength=strength
+            strength=1.0  # Fixed default strength
         )
         
         # Store job metadata for results page (simple in-memory cache)
@@ -201,8 +200,7 @@ async def process_image(
             "model_name": result.model_name,
             "original_size": input_path.stat().st_size,
             "hdr_size": hdr_size,
-            "has_hdr": True,
-            "strength": strength
+            "has_hdr": True
         }
         
         # Redirect to results page (POST-redirect-GET pattern)
@@ -277,46 +275,6 @@ async def serve_image(job_id: str, image_type: str):
     
     return FileResponse(file_path)
 
-
-@app.post("/preview")
-async def generate_live_preview(
-    file: UploadFile = File(...),
-    strength: float = Form(1.0)
-):
-    """Generate real-time HDR preview for slider changes"""
-    
-    # Validate file size for preview (smaller limit for real-time processing)
-    content = await file.read()
-    if len(content) > 10 * 1024 * 1024:  # 10MB limit for previews
-        raise HTTPException(status_code=413, detail="File too large for preview. Maximum: 10MB")
-    
-    if len(content) < 1000:
-        raise HTTPException(status_code=400, detail="File too small or corrupted")
-    
-    await file.seek(0)
-    
-    try:
-        # Generate temp job ID for preview
-        preview_id = str(uuid.uuid4())
-        input_path = TEMP_DIR / f"preview_{preview_id}_input.jpg"
-        preview_path = TEMP_DIR / f"preview_{preview_id}_output.jpg"
-        
-        # Save uploaded file
-        with open(input_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
-        
-        # Generate enhanced preview quickly
-        create_hdr_preview(
-            str(input_path), 
-            str(preview_path),
-            strength=strength
-        )
-        
-        # Return the preview image (no cleanup needed - system temp handles it)
-        return FileResponse(preview_path, media_type="image/jpeg")
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Preview generation failed: {e}")
 
 
 @app.get("/download/{job_id}/{file_type}")

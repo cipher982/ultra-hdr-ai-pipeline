@@ -32,6 +32,7 @@ class GainMapPipelineConfig:
     model_type: str = "auto"  # "gmnet", "hdrcnn", "synthetic", "auto"
     model_path: Optional[str] = None
     
+    
     # Export settings - only Ultra HDR JPEG supported
     export_quality: int = 95
     gain_map_quality: int = 85
@@ -330,9 +331,11 @@ def run_gainmap_pipeline(
                 metadata=UltraHDRMetadata(
                     gain_min_log2=prediction.gain_min_log2,
                     gain_max_log2=prediction.gain_max_log2,
-                    # ISO hdrgm expects log2 stops for HDRCapacity*, not linear ratio
                     hdr_capacity_min=max(0.0, prediction.gain_min_log2),
-                    hdr_capacity_max=prediction.gain_max_log2
+                    hdr_capacity_max=prediction.gain_max_log2,
+                    gamma=1.0,
+                    offset_sdr=1.0/64.0,
+                    offset_hdr=1.0/64.0
                 )
             )
             print(f"✅ Ultra HDR JPEG created: {main_output_path}")

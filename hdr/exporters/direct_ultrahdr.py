@@ -181,13 +181,21 @@ def _build_xmp_app1(payload_xml: str) -> bytes:
 
 
 def _create_primary_gcontainer_xmp(gainmap_length: int, meta: "UltraHDRMetadata") -> bytes:
-    """Disabled: avoid primary GContainer to match non-washed baseline.
-
-    Some macOS builds appear to mis-handle primary XMP GContainer when HDR
-    isn’t engaged, causing a brightened SDR look. We omit primary XMP and rely
-    on ISO 21496-1 + MPF + hdrgm on the gain map.
-    """
-    return b""
+    """Create GContainer XMP for the primary image pointing to gain map."""
+    xml = f"""
+<?xpacket begin='\ufeff' id='W5M0MpCehiHzreSzNTczkc9d'?>
+<x:xmpmeta xmlns:x='adobe:ns:meta/'>
+  <rdf:RDF xmlns:rdf='http://www.w3.org/1999/02/22-rdf-syntax-ns#'>
+    <rdf:Description xmlns:Container='http://ns.google.com/photos/1.0/container/'
+      Container:Version='1'
+      Container:Directory=''>
+      <Container:Item Mime='image/jpeg' Length='{gainmap_length}'/>
+    </rdf:Description>
+  </rdf:RDF>
+</x:xmpmeta>
+<?xpacket end='w'?>
+"""
+    return _build_xmp_app1(xml)
 
 
 def _create_gainmap_hdrgm_xmp(meta: "UltraHDRMetadata") -> bytes:
@@ -490,8 +498,9 @@ def create_ultra_hdr_jpeg(
         print(f'✓ SDR JPEG: {len(sdr_jpeg_data):,} bytes')
         print(f'✓ Gain map JPEG: {len(gainmap_jpeg_data):,} bytes')
         
-        # Step 3: Use raw gain-map JPEG bytes (no extra XMP to avoid SDR shifts)
-        gainmap_jpeg_with_xmp = gainmap_jpeg_data
+        # Step 3: Add HDR XMP metadata to gain map JPEG
+        hdrgm_xmp = _create_gainmap_hdrgm_xmp(metadata)
+        gainmap_jpeg_with_xmp = _insert_app_segments(gainmap_jpeg_data, [hdrgm_xmp])
 
         # Step 4: Compute sizes for MPF and primary GContainer XMP
         gm_size = len(gainmap_jpeg_with_xmp)
